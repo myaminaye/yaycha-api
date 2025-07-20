@@ -1,6 +1,8 @@
 import express from "express";
 import { prisma } from "../PrismaClient.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { auth } from "../middlewares/auth.js";
 
 const router = express.Router();
 
@@ -12,6 +14,7 @@ router.get("/users", async (req, res) => {
   });
   res.json(data);
 });
+
 router.get("/users/:id", async (req, res) => {
   const { id } = req.params;
   const data = await prisma.user.findFirst({
@@ -30,6 +33,28 @@ router.post("/users", async (req, res) => {
   const user = await prisma.user.create({
     data: { name, username, password: hash, bio },
   });
+  res.json(user);
+});
+
+router.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ msg: "username and password required" });
+  }
+  const user = await prisma.user.findUnique({
+    where: { username },
+  });
+  if (user) {
+    if (bcrypt.compare(password, user.password)) {
+      const token = jwt.sign(user, process.env.JWT_SECRET);
+      return res.json({ token, user });
+    }
+  }
+  res.status(401).json({ msg: "incorrect username or password" });
+});
+
+router.get("/verify", auth, async (req, res) => {
+  const user = res.locals.user;
   res.json(user);
 });
 

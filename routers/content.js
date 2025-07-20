@@ -1,5 +1,6 @@
 import express from "express";
 import { prisma } from "../PrismaClient.js";
+import { auth, isOwner } from "../middlewares/auth.js";
 
 const router = express.Router();
 
@@ -24,6 +25,49 @@ router.get("/posts", async (req, res) => {
   }
 });
 
+router.post("/posts", auth, async (req, res) => {
+  const { content } = req.body;
+  if (!content) {
+    return res.status(400).json({ msg: "content required" });
+  }
+  const user = res.locals.user;
+  const post = await prisma.post.create({
+    data: {
+      content,
+      userId: user.id,
+    },
+  });
+  const data = await prisma.post.findUnique({
+    where: { id: Number(post.id) },
+    include: {
+      user: true,
+      comments: {
+        include: { user: true },
+      },
+    },
+  });
+  res.json(data);
+});
+
+
+router.post("/comments", auth, async (req, res) => {
+  const { content, postId } = req.body;
+  if (!content || !postId) {
+    return;
+    res.status(400).json({ msg: "content and postId required" });
+  }
+  const user = res.locals.user;
+  const comment = await prisma.comment.create({
+    data: {
+      content,
+      userId: Number(user.id),
+      postId: Number(postId),
+    },
+  });
+  comment.user = user;
+  res.json(comment);
+});
+
 router.get("/posts/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -42,9 +86,9 @@ router.get("/posts/:id", async (req, res) => {
   }
 });
 
-router.delete("/posts/:id", async (req, res) => {
+router.delete("/posts/:id", auth, isOwner("post"), async (req, res) => {
   const { id } = req.params;
-  await prisma.comment.deleteMany({
+  await PrismaClient.comment.deleteMany({
     where: { postId: Number(id) },
   });
   await prisma.post.delete({
@@ -53,7 +97,7 @@ router.delete("/posts/:id", async (req, res) => {
   res.sendStatus(204);
 });
 
-router.delete("/comments/:id", async (req, res) => {
+router.delete("/comments/:id", auth, isOwner("comment"), async (req, res) => {
   const { id } = req.params;
   await prisma.comment.delete({
     where: { id: Number(id) },
