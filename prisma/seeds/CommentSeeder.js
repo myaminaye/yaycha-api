@@ -1,12 +1,21 @@
 import { faker } from "@faker-js/faker";
 
 export async function CommentSeeder(prisma) {
+  const users = await prisma.user.findMany({ select: { id: true } });
+  const posts = await prisma.post.findMany({ select: { id: true } });
+
+  if (users.length === 0 || posts.length === 0) {
+    throw new Error("No users or posts available to seed comments.");
+  }
+
   const data = [];
+
   for (let i = 0; i < 40; i++) {
-    const content = faker.lorem.paragraph();
-    const userId = faker.number.int({ min: 1, max: 10 });
-    const postId = faker.number.int({ min: 1, max: 20 });
-    data.push({ content, userId, postId });
+    data.push({
+      content: faker.lorem.paragraph(),
+      userId: users[Math.floor(Math.random() * users.length)].id,
+      postId: posts[Math.floor(Math.random() * posts.length)].id,
+    });
   }
 
   console.log("Comment seeding started...");

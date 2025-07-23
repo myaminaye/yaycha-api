@@ -3,12 +3,19 @@ import cors from "cors";
 import { prisma } from "./PrismaClient.js";
 import { contentRouter } from "./routers/content.js";
 import { userRouter } from "./routers/user.js";
+import { initWsRouter, wsRouter } from "./routers/ws.js";
+import expressWs from "express-ws";
 
 const app = express();
+const wsInstance = expressWs(app);
+
+initWsRouter(wsInstance);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use("/ws", wsRouter);
 app.use("/content", contentRouter);
 app.use("/", userRouter);
 
